@@ -1,0 +1,51 @@
+# Gatling Load Test Configurations
+
+common:
+  session_repeats: 20
+  pause_min_sec: 2
+  pause_max_sec: 3
+
+profiles:
+  # Profiles for MultiSimulation (Full stress test with multiple attack vectors)
+  multi:
+    light:
+      rps_warmup: 100
+      rps_extreme: 500
+      storm_users: 1000
+      relogin_users: 200
+      unknown_users: 200
+      ddos_users: 20
+      base_users: 5
+      duration_sec: 60
+
+    heavy:
+      rps_warmup: 1000
+      rps_extreme: 15000
+      storm_users: 30000
+      relogin_users: 5000
+      unknown_users: 5000
+      ddos_users: 1000
+      base_users: 50
+      duration_sec: 120
+
+    default:
+      rps_warmup: 500
+      rps_extreme: 5000
+      storm_users: 10000
+      relogin_users: 2000
+      unknown_users: 2000
+      ddos_users: 200
+      base_users: 50
+      duration_sec: 90
+
+  # Profile for BaselineSimulation (Clean sustainable load measurement)
+  baseline:
+    rps_start: 10
+    rps_max: 500
+    duration_sec: 100
+
+  # Profile for LoginSpikeSimulation (Maximum burst measurement)
+  spike_hunt:
+    rps_base: 500
+    spike_users: 5000
+    duration_sec: 60
