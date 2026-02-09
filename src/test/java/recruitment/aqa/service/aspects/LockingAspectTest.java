@@ -34,7 +34,7 @@ class LockingAspectTest {
     private TokenStorage tokenStorage;
 
     @Test
-    @DisplayName("Aspect Execution: Should execute locked method successfully and update MDC")
+    @DisplayName("Аспект: Должен успешно выполнять заблокированный метод и обновлять MDC")
     void shouldExecuteLockedMethod() {
         MDC.clear(); // Ensure clean state
         String token = "testToken";
@@ -54,11 +54,11 @@ class LockingAspectTest {
         assertDoesNotThrow(() -> actionService.action(token));
         
         // Verify Aspect execution side-effect
-        assertEquals(token, MDC.get("token"), "Aspect should have put token into MDC");
+        assertEquals(token, MDC.get("token"), "Аспект должен был поместить токен в MDC");
     }
 
     @Test
-    @DisplayName("Aspect: Should throw exception when key is not found in parameters")
+    @DisplayName("Аспект: Должен выбрасывать исключение, если ключ не найден в параметрах")
     void shouldThrowExceptionWhenKeyNotFound() throws Throwable {
         // Given
         LockingAspect aspect = new LockingAspect(null);
@@ -79,7 +79,7 @@ class LockingAspectTest {
     }
 
     @Test
-    @DisplayName("Aspect: Should throw exception when matching argument is not a String")
+    @DisplayName("Аспект: Должен выбрасывать исключение, если аргумент не является строкой")
     void shouldThrowExceptionWhenArgumentIsNotString() throws Throwable {
         // Given
         LockingAspect aspect = new LockingAspect(null);

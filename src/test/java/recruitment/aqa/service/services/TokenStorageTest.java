@@ -13,7 +13,7 @@ class TokenStorageTest {
      * Verifies that a token can be added to the storage and then retrieved using contains().
      */
     @Test
-    @DisplayName("should be able to put tokens")
+    @DisplayName("Хранилище: Должно успешно сохранять токены")
     void put_ShouldAddToken() {
         String token = "token123";
         
@@ -22,7 +22,7 @@ class TokenStorageTest {
     }
 
     @Test
-    @DisplayName("should check if token exists")
+    @DisplayName("Хранилище: Должно проверять наличие токена")
     void contains_ShouldReturnTrueIfExists() {
         String token = "existingToken";
         tokenStorage.put(token);
@@ -31,7 +31,7 @@ class TokenStorageTest {
     }
 
     @Test
-    @DisplayName("should remove token")
+    @DisplayName("Хранилище: Должно удалять токены")
     void remove_ShouldRemoveToken() {
         String token = "tokenToRemove";
         tokenStorage.put(token);

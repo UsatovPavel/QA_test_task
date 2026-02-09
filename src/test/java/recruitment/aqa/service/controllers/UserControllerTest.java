@@ -1,5 +1,6 @@
 package recruitment.aqa.service.controllers;
 
+import io.qameta.allure.Allure;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,9 +33,9 @@ class UserControllerTest {
     // --- SECURITY TESTS ---
     
     @Test
-    @DisplayName("Security Check: Missing X-Api-Key should return 401 Unauthorized")
+    @DisplayName("Безопасность: Запрос без X-API-Key должен возвращать 401 Unauthorized")
     void endpoint_MissingApiKey_ShouldReturnUnauthorized() throws Exception {
-        
+        Allure.step("Выполняем POST запрос без заголовка X-API-Key");
         mockMvc.perform(post("/endpoint")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("token", "1234567890ABCDEF1234567890ABCDEF")
@@ -42,36 +43,40 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized()); // Validating that security works!
     }
     @Test
-    @DisplayName("Security: Stateless check - subsequent request without Key fails")
+    @DisplayName("Безопасность: Проверка Stateless - повторный запрос без ключа отклоняется")
     void endpoint_SubsequentRequestWithoutKey_ReturnsUnauthorized() throws Exception {
-        // 1. Successful request
         String token = "1234567890ABCDEF1234567890ABCDEF";
-        mockMvc.perform(post("/endpoint")
-                .header("X-API-Key", "qazWSXedc") // With Key
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("token", token)
-                .param("action", "LOGIN"))
-                .andExpect(status().isOk());
+        
+        Allure.step("Шаг 1: Выполняем успешный запрос с валидным ключом", () -> {
+            mockMvc.perform(post("/endpoint")
+                    .header("X-API-Key", "qazWSXedc")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .param("token", token)
+                    .param("action", "LOGIN"))
+                    .andExpect(status().isOk());
+        });
 
-        // 2. Request without Key (should fail, proving no session leakage)
-        mockMvc.perform(post("/endpoint")
-                // No Key
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("token", token)
-                .param("action", "ACTION"))
-                .andExpect(status().isUnauthorized());
+        Allure.step("Шаг 2: Выполняем запрос без ключа (должен упасть, доказывая отсутствие сессий)", () -> {
+            mockMvc.perform(post("/endpoint")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .param("token", token)
+                    .param("action", "ACTION"))
+                    .andExpect(status().isUnauthorized());
+        });
     }
 
     // --- FUNCTIONAL TESTS ---
 
     @Test
-    @DisplayName("Valid LOGIN Request (with correct API Key) should return 200 OK")
+    @DisplayName("Функционал: Успешный LOGIN с валидным токеном и ключом")
     void endpoint_ValidLogin_ReturnsOk() throws Exception {
         String token = "1234567890ABCDEF1234567890ABCDEF";
+        Allure.step("Настраиваем мок ActionService на успех для токена " + token);
         doNothing().when(actionService).auth(token);
 
+        Allure.step("Отправляем запрос LOGIN");
         mockMvc.perform(post("/endpoint")
-                .header("X-API-Key", "qazWSXedc") // Providing the correct key
+                .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("token", token)
                 .param("action", "LOGIN"))
@@ -80,13 +85,15 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("Valid ACTION Request (with correct API Key) should return 200 OK")
+    @DisplayName("Функционал: Успешный ACTION с валидным токеном и ключом")
     void endpoint_ValidAction_ReturnsOk() throws Exception {
         String token = "1234567890ABCDEF1234567890ABCDEF";
+        Allure.step("Настраиваем мок ActionService на успех для действия");
         doNothing().when(actionService).action(token);
 
+        Allure.step("Отправляем запрос ACTION");
         mockMvc.perform(post("/endpoint")
-                .header("X-API-Key", "qazWSXedc") // Providing the key
+                .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("token", token)
                 .param("action", "ACTION"))
@@ -95,8 +102,9 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("Invalid Action Enum should return 400 Bad Request")
+    @DisplayName("Ошибки: Некорректный Action возвращает 400 Bad Request")
     void endpoint_InvalidAction_ReturnsBadRequest() throws Exception {
+        Allure.step("Отправляем запрос с несуществующим действием UNKNOWN_ACTION");
         mockMvc.perform(post("/endpoint")
                 .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -110,13 +118,14 @@ class UserControllerTest {
     // --- ERROR HANDLING TESTS (ExceptionTranslator) ---
 
     @Test
-    @DisplayName("Token Already Exists should return 409 Conflict")
+    @DisplayName("Ошибки: Повторный LOGIN для существующего токена возвращает 409 Conflict")
     void endpoint_TokenAlreadyExists_ReturnsConflict() throws Exception {
         String token = "1234567890ABCDEF1234567890ABCDEF";
-        // Construct exception with the token, assuming the exception formats the message using it
+        Allure.step("Настраиваем мок на выброс исключения TokenAlreadyExists");
         doThrow(new recruitment.aqa.service.exceptions.TokenAlreadyExists(token))
                 .when(actionService).auth(token);
 
+        Allure.step("Отправляем LOGIN");
         mockMvc.perform(post("/endpoint")
                 .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -124,34 +133,36 @@ class UserControllerTest {
                 .param("action", "LOGIN"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.result").value("ERROR"))
-                // Expect the error message to contain the token (exact format depends on exception implementation)
                 .andExpect(jsonPath("$.message").value(containsString(token)));
     }
 
     @Test
-    @DisplayName("Token Not Found should return 403 Forbidden")
+    @DisplayName("Ошибки: Запрос ACTION для несуществующего токена возвращает 403 Forbidden")
     void endpoint_TokenNotFound_ReturnsForbidden() throws Exception {
         String token = "1234567890ABCDEF1234567890ABCDEF";
+        Allure.step("Имитируем отсутствие токена в сервисе");
         doThrow(new recruitment.aqa.service.exceptions.TokenNotFound(token))
                 .when(actionService).action(token);
 
+        Allure.step("Отправляем ACTION");
         mockMvc.perform(post("/endpoint")
                 .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("token", token)
                 .param("action", "ACTION"))
-                .andExpect(status().isForbidden()) // 403 from ExceptionTranslator
+                .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.result").value("ERROR"))
                 .andExpect(jsonPath("$.message").value(containsString(token)));
     }
 
     @Test
-    @DisplayName("Validation Error (empty token) should return 400 Bad Request")
+    @DisplayName("Валидация: Пустой токен возвращает 400 Bad Request")
     void endpoint_ValidationError_ReturnsBadRequest() throws Exception {
+        Allure.step("Отправляем запрос с пустым токеном");
         mockMvc.perform(post("/endpoint")
                 .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .param("token", "") // Empty token -> Validation Error
+                .param("token", "")
                 .param("action", "LOGIN"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.result").value("ERROR"));
@@ -170,12 +181,14 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("Internal Server Error should return 500")
+    @DisplayName("Ошибки: Непредвиденное исключение возвращает 500 Internal Server Error")
     void endpoint_InternalError_Returns500() throws Exception {
         String token = "1234567890ABCDEF1234567890ABCDEF";
+        Allure.step("Имитируем критический сбой в ActionService");
         doThrow(new RuntimeException("Something went wrong"))
                 .when(actionService).logout(token);
 
+        Allure.step("Отправляем запрос и проверяем 500 ошибку");
         mockMvc.perform(post("/endpoint")
                 .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -198,11 +211,13 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("Valid LOGOUT Request should return 200 OK")
+    @DisplayName("Функционал: Успешный LOGOUT")
     void endpoint_ValidLogout_ReturnsOk() throws Exception {
         String token = "1234567890ABCDEF1234567890ABCDEF";
+        Allure.step("Имитируем успешное удаление токена");
         doNothing().when(actionService).logout(token);
 
+        Allure.step("Отправляем LOGOUT");
         mockMvc.perform(post("/endpoint")
                 .header("X-API-Key", "qazWSXedc")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
