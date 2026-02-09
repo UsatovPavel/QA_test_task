@@ -27,10 +27,10 @@ class ActionServiceTest {
     @InjectMocks
     private ActionService actionService;
 
-    // Mock RestClient chain is complex, so we might need deeper mocking or use WireMock for integration tests later.
-    // For unit tests of Logic, we can mock the Service dependencies. 
-    // However, ActionService uses RestClient directly. 
-    // To properly unit test 'auth', we need to mock the RestClient chain: .post().uri().body().retrieve().toBodilessEntity()
+    /**
+     * Mocks for the fluent API of RestClient.
+     * Required to mock the chain: .post().uri().body().retrieve().toBodilessEntity()
+     */
     
     @Mock
     private RestClient.RequestBodyUriSpec requestBodyUriSpec;
