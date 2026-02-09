@@ -12,17 +12,24 @@ import java.io.InputStream
 class LoginSpikeSimulation extends Simulation {
 
   // YAML Config Loader
-  val config: Map[String, Any] = {
+  private val fullConfig: Map[String, Any] = {
     val mapper = new ObjectMapper(new YAMLFactory())
     mapper.registerModule(DefaultScalaModule)
-    val profileName = sys.props.getOrElse("load.profile", "spike_hunt")
     val inputStream: InputStream = getClass.getResourceAsStream("/load-config.yaml")
-    val fullConfig = mapper.readValue(inputStream, classOf[Map[String, Map[String, Map[String, Any]]]])
-    val profiles = fullConfig("profiles")
-    profiles.getOrElse(profileName, profiles("default"))
+    if (inputStream == null) throw new RuntimeException("Could not find load-config.yaml")
+    mapper.readValue(inputStream, classOf[Map[String, Any]])
   }
 
+  val config: Map[String, Any] = {
+    val profileName = sys.props.getOrElse("load.profile", "spike_hunt")
+    val profiles = fullConfig("profiles").asInstanceOf[Map[String, Map[String, Any]]]
+    profiles.getOrElse(profileName, Map.empty[String, Any])
+  }
+
+  val common: Map[String, Any] = fullConfig("common").asInstanceOf[Map[String, Any]]
+
   def getInt(key: String, default: Int): Int = config.get(key).map(_.toString.toInt).getOrElse(default)
+  def getCommonInt(key: String, default: Int): Int = common.get(key).map(_.toString.toInt).getOrElse(default)
 
   val rpsBase    = getInt("rps_base", 1000)
   val spikeUsers = getInt("spike_users", 5000)
@@ -38,13 +45,18 @@ class LoginSpikeSimulation extends Simulation {
   def generateToken(): String = UUID.randomUUID().toString.replace("-", "").toUpperCase
   val tokenFeeder = Iterator.continually(Map("token" -> generateToken()))
 
+  val sessionRepeats = getCommonInt("session_repeats", 20)
+  val pauseMin       = getCommonInt("pause_min_sec", 2).seconds
+  val pauseMax       = getCommonInt("pause_max_sec", 3).seconds
+
   // Baseline scenario matching your 1000 RPS requirement
   val scnBase = scenario("Background Load (1000 RPS)")
     .feed(tokenFeeder)
     .exec(http("Base Login").post("/endpoint").formParam("token", "#{token}").formParam("action", "LOGIN").check(status.is(200)))
     .pause(1)
-    .repeat(5) {
+    .repeat(sessionRepeats) {
       exec(http("Base Action").post("/endpoint").formParam("token", "#{token}").formParam("action", "ACTION").check(status.is(200)))
+      .pause(pauseMin, pauseMax)
     }
   
   // The Spike: target for measurement

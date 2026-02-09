@@ -12,22 +12,25 @@ import java.io.InputStream
 class MultiSimulation extends Simulation {
 
   // YAML Config Loader
-  val config: Map[String, Any] = {
+  private val fullConfig: Map[String, Any] = {
     val mapper = new ObjectMapper(new YAMLFactory())
     mapper.registerModule(DefaultScalaModule)
-    val profileName = sys.props.getOrElse("load.profile", "default")
     val inputStream: InputStream = getClass.getResourceAsStream("/load-config.yaml")
     if (inputStream == null) throw new RuntimeException("Could not find load-config.yaml")
-    
-    val fullConfig = mapper.readValue(inputStream, classOf[Map[String, Map[String, Any]]])
-    val profiles = fullConfig("profiles")
-    
-    // Read from the 'multi' block
-    val multiProfiles = profiles("multi").asInstanceOf[Map[String, Map[String, Any]]]
+    mapper.readValue(inputStream, classOf[Map[String, Any]])
+  }
+
+  val config: Map[String, Any] = {
+    val profileName = sys.props.getOrElse("load.profile", "default")
+    val profiles = fullConfig("profiles").asInstanceOf[Map[String, Map[String, Map[String, Any]]]]
+    val multiProfiles = profiles("multi")
     multiProfiles.getOrElse(profileName, multiProfiles("default"))
   }
 
+  val common: Map[String, Any] = fullConfig("common").asInstanceOf[Map[String, Any]]
+
   def getInt(key: String, default: Int): Int = config.get(key).map(_.toString.toInt).getOrElse(default)
+  def getCommonInt(key: String, default: Int): Int = common.get(key).map(_.toString.toInt).getOrElse(default)
 
   val rpsWarmUp    = getInt("rps_warmup", 500)
   val rpsExtreme   = getInt("rps_extreme", 1000)
@@ -37,6 +40,10 @@ class MultiSimulation extends Simulation {
   val ddosBots     = getInt("ddos_users", 50)
   val baseUsers    = getInt("base_users", 10)
   val duration     = getInt("duration_sec", 90).seconds
+
+  val sessionRepeats = getCommonInt("session_repeats", 20)
+  val pauseMin       = getCommonInt("pause_min_sec", 2).seconds
+  val pauseMax       = getCommonInt("pause_max_sec", 3).seconds
 
   val httpProtocol = http
     .baseUrl("http://localhost:8080")
@@ -57,9 +64,9 @@ class MultiSimulation extends Simulation {
     .group("Standard Session") {
       exec(http("Auth Login").post("/endpoint").formParam("token", "#{token}").formParam("action", "LOGIN").check(status.is(200)))
       .pause(1)
-      .repeat(20) {
+      .repeat(sessionRepeats) {
         exec(http("Action Request").post("/endpoint").formParam("token", "#{token}").formParam("action", "ACTION").check(status.is(200)))
-        .pause(2.seconds, 3.seconds)
+        .pause(pauseMin, pauseMax)
       }
       .exec(http("Auth Logout").post("/endpoint").formParam("token", "#{token}").formParam("action", "LOGOUT").check(status.is(200)))
     }

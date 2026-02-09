@@ -23,7 +23,7 @@ class BaselineSimulation extends Simulation {
   val config: Map[String, Any] = {
     val profileName = sys.props.getOrElse("load.profile", "baseline")
     val profiles = fullConfig("profiles").asInstanceOf[Map[String, Map[String, Any]]]
-    profiles.getOrElse(profileName, profiles("default"))
+    profiles.getOrElse(profileName, Map.empty[String, Any])
   }
 
   val common: Map[String, Any] = fullConfig("common").asInstanceOf[Map[String, Any]]
